@@ -1,4 +1,4 @@
-# Keep current branch version when these generated/docs files conflict during merges.
-README.md merge=ours
-novel_generator.py merge=ours
-novel_webui.py merge=ours
+# Use built-in union merge driver so these frequently-edited files auto-merge across environments.
+README.md merge=union
+novel_generator.py merge=union
+novel_webui.py merge=union
