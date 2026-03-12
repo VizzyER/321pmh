@@ -1,0 +1,4 @@
+# Keep current branch version when these generated/docs files conflict during merges.
+README.md merge=ours
+novel_generator.py merge=ours
+novel_webui.py merge=ours
