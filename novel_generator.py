@@ -24,14 +24,6 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 
-@dataclass
-class Character:
-    name: str
-    profile: str
-    motivations: List[str] = field(default_factory=list)
-    relationships: Dict[str, str] = field(default_factory=dict)
-
-
 _CHARACTER_FIELDS = frozenset({"name", "profile", "motivations", "relationships"})
 
 
@@ -119,6 +111,14 @@ def _load_persisted_characters(data: Dict[str, Any]) -> List[Character]:
             )
         )
     return characters
+
+
+@dataclass
+class Character:
+    name: str
+    profile: str
+    motivations: List[str] = field(default_factory=list)
+    relationships: Dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
