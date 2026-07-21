@@ -259,12 +259,151 @@ class NovelGenerator:
             """
         ).strip()
 
+    def _parse_generated_outline(self, chapter_file: Path, chapter_no: int) -> Dict[str, Any]:
+        chapter_content = chapter_file.read_text(encoding="utf-8")
+        boundary = "\n---\n"
+        if boundary not in chapter_content:
+            raise RuntimeError(
+                f"无法恢复第{chapter_no}章连续性状态：{chapter_file} 缺少细纲与正文分隔线"
+            )
+
+        outline = chapter_content.split(boundary, 1)[0]
+        lines = outline.splitlines()
+        expected_heading = f"## 第{chapter_no}章细纲摘要"
+        if not lines or lines[0] != expected_heading:
+            raise RuntimeError(
+                f"无法恢复第{chapter_no}章连续性状态：{chapter_file} "
+                f"细纲标题必须为“{expected_heading}”"
+            )
+
+        markers = ["**剧情摘要**", "**关键事件**", "**人物变化**"]
+        marker_positions: List[int] = []
+        for marker in markers:
+            positions = [index for index, line in enumerate(lines) if line == marker]
+            if len(positions) != 1:
+                raise RuntimeError(
+                    f"无法恢复第{chapter_no}章连续性状态：{chapter_file} "
+                    f"必须且只能包含一个“{marker}”标记"
+                )
+            marker_positions.append(positions[0])
+
+        if marker_positions != sorted(marker_positions) or any(
+            line.strip() for line in lines[1 : marker_positions[0]]
+        ):
+            raise RuntimeError(
+                f"无法恢复第{chapter_no}章连续性状态：{chapter_file} 细纲章节顺序无效"
+            )
+
+        summary = "\n".join(
+            lines[marker_positions[0] + 1 : marker_positions[1]]
+        ).strip()
+        if not summary:
+            raise RuntimeError(
+                f"无法恢复第{chapter_no}章连续性状态：{chapter_file} 剧情摘要为空"
+            )
+
+        def parse_items(section_lines: List[str], section_name: str) -> List[str]:
+            while section_lines and not section_lines[0].strip():
+                section_lines.pop(0)
+            while section_lines and not section_lines[-1].strip():
+                section_lines.pop()
+            if not section_lines:
+                raise RuntimeError(
+                    f"无法恢复第{chapter_no}章连续性状态：{chapter_file} "
+                    f"“{section_name}”内容为空"
+                )
+
+            items: List[str] = []
+            current: List[str] = []
+            for line in section_lines:
+                if line.startswith("- "):
+                    if current:
+                        items.append("\n".join(current).strip())
+                    item_start = line[2:].strip()
+                    if not item_start:
+                        raise RuntimeError(
+                            f"无法恢复第{chapter_no}章连续性状态：{chapter_file} "
+                            f"“{section_name}”包含空列表项"
+                        )
+                    current = [item_start]
+                elif current:
+                    current.append(line)
+                elif line.strip():
+                    raise RuntimeError(
+                        f"无法恢复第{chapter_no}章连续性状态：{chapter_file} "
+                        f"“{section_name}”必须使用 Markdown 列表"
+                    )
+            if current:
+                items.append("\n".join(current).strip())
+            return items
+
+        events = parse_items(
+            lines[marker_positions[1] + 1 : marker_positions[2]],
+            markers[1],
+        )
+        if "（无）" in events and events != ["（无）"]:
+            raise RuntimeError(
+                f"无法恢复第{chapter_no}章连续性状态：{chapter_file} "
+                "“关键事件”的“（无）”不能与事件并存"
+            )
+        events = [event for event in events if event != "（无）"]
+
+        update_items = parse_items(lines[marker_positions[2] + 1 :], markers[2])
+        if "（无）" in update_items and update_items != ["（无）"]:
+            raise RuntimeError(
+                f"无法恢复第{chapter_no}章连续性状态：{chapter_file} "
+                "“人物变化”的“（无）”不能与人物变化并存"
+            )
+
+        updates: Dict[str, str] = {}
+        for item in update_items:
+            if item == "（无）":
+                continue
+            name, separator, change = item.partition(":")
+            name = name.strip()
+            change = change.strip()
+            if not separator or not name or not change or name in updates:
+                raise RuntimeError(
+                    f"无法恢复第{chapter_no}章连续性状态：{chapter_file} "
+                    "“人物变化”必须是唯一的“角色名: 变化”列表项"
+                )
+            updates[name] = change
+
+        return {
+            "summary": summary,
+            "timeline_events": events,
+            "character_updates": updates,
+        }
+
+    def _recover_chapter_state(
+        self,
+        state: NovelState,
+        chapter_no: int,
+        chapter_file: Path,
+    ) -> None:
+        meta = self._parse_generated_outline(chapter_file, chapter_no)
+        state.chapter_summaries.append(f"第{chapter_no}章：{meta['summary']}")
+        for event in meta["timeline_events"]:
+            state.timeline_events.append(f"第{chapter_no}章：{event}")
+
+        updates = meta["character_updates"]
+        for char in state.characters:
+            if char.name in updates:
+                char.profile = f"{char.profile} | 最近变化：{updates[char.name]}"
+        self.save_state(state)
+
     def run(self, resume: bool = False, start_chapter: int = 1) -> None:
         state = self.load_state() if resume else self.load_state()
 
         for chapter_no in range(start_chapter, state.total_chapters + 1):
             chapter_file = self.output_dir / f"chapter_{chapter_no:04d}.md"
             if chapter_file.exists():
+                chapter_prefix = f"第{chapter_no}章："
+                if not any(
+                    isinstance(summary, str) and summary.startswith(chapter_prefix)
+                    for summary in state.chapter_summaries
+                ):
+                    self._recover_chapter_state(state, chapter_no, chapter_file)
                 continue
 
             print(f"[INFO] Generating chapter {chapter_no}/{state.total_chapters}...")
