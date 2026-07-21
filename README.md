@@ -48,6 +48,7 @@ python3 novel_generator.py run --api-key "$OPENAI_API_KEY" --start 1
 
 - 大规模生成成本较高，请控制模型、温度和章节长度。
 - 若你使用不同供应商，只要兼容 OpenAI chat completions 即可。
+- 生成器仅接纳字符串摘要和“角色名→字符串变化”映射；格式异常字段按缺失处理，避免污染章节细纲与 `novel_state.json`。
 
 
 ## Web UI（浏览小说与章节详情）

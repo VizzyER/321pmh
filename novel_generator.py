@@ -224,6 +224,7 @@ class NovelGenerator:
             raise RuntimeError(f"无法解析章节摘要 JSON：{raw}") from e
 
     def build_chapter_outline(self, chapter_no: int, meta: Dict[str, Any]) -> str:
+        meta = _normalize_generated_meta(meta)
         summary = str(meta.get("summary", "")).strip() or "（无摘要）"
         timeline_events = meta.get("timeline_events", [])
         if not isinstance(timeline_events, list):
@@ -270,6 +271,7 @@ class NovelGenerator:
             print(f"[INFO] Generating chapter {chapter_no}/{state.total_chapters}...")
             chapter_text = self.generate_one_chapter(state, chapter_no)
             meta = self.summarize_chapter(chapter_text)
+            meta = _normalize_generated_meta(meta)
             chapter_outline = self.build_chapter_outline(chapter_no, meta)
             chapter_with_outline = f"{chapter_outline}\n\n---\n\n{chapter_text.strip()}\n"
             chapter_file.write_text(chapter_with_outline, encoding="utf-8")
@@ -287,6 +289,36 @@ class NovelGenerator:
 
             self.save_state(state)
             time.sleep(0.1)
+
+
+def _normalize_summary(raw: Any) -> str:
+    if isinstance(raw, str):
+        summary = raw.strip()
+        if summary:
+            return summary
+    return "（无摘要）"
+
+
+def _normalize_character_updates(raw: Any) -> Dict[str, str]:
+    if not isinstance(raw, dict):
+        return {}
+
+    updates: Dict[str, str] = {}
+    for name, change in raw.items():
+        if not isinstance(name, str) or not isinstance(change, str):
+            continue
+        clean_name = name.strip()
+        clean_change = change.strip()
+        if clean_name and clean_change:
+            updates[clean_name] = clean_change
+    return updates
+
+
+def _normalize_generated_meta(meta: Any) -> Dict[str, Any]:
+    normalized = dict(meta) if isinstance(meta, dict) else {}
+    normalized["summary"] = _normalize_summary(normalized.get("summary"))
+    normalized["character_updates"] = _normalize_character_updates(normalized.get("character_updates"))
+    return normalized
 
 
 def parse_characters(raw: str) -> List[Character]:
