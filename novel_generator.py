@@ -284,6 +284,7 @@ class NovelGenerator:
                     f"第 {chapter_no} 章：章节文件缺失但连续性状态已存在（{chapter_file} 不存在，"
                     f"但 novel_state.json 的 chapter_summaries 或 timeline_events 中已有该章记录）。"
                     "请先恢复章节文件，或人工修复状态后再继续；程序不会自动删除或覆盖已有连续性状态。"
+                    "恢复步骤见 RECOVERY.md。"
                 )
 
             print(f"[INFO] Generating chapter {chapter_no}/{state.total_chapters}...")
