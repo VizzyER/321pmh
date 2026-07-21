@@ -45,31 +45,67 @@ def _read_json(path: Path) -> Dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _resolve_within_root(library_root: Path, path: Path) -> Optional[Path]:
+    root = library_root.resolve()
+    try:
+        resolved = path.resolve()
+        resolved.relative_to(root)
+    except (OSError, RuntimeError, ValueError):
+        return None
+    return resolved
+
+
+def resolve_project_dir(library_root: Path, novel_id: str) -> Optional[Path]:
+    root = library_root.resolve()
+    if novel_id == "__root__":
+        candidate = root
+    else:
+        if novel_id in {"", ".", ".."} or Path(novel_id).name != novel_id:
+            return None
+        candidate = _resolve_within_root(root, root / novel_id)
+        if candidate is None:
+            return None
+        if candidate == root:
+            return None
+
+    state_path = _resolve_within_root(root, candidate / "novel_state.json")
+    if state_path is None or not state_path.is_file():
+        return None
+    output_dir = _resolve_within_root(root, candidate / "novel_output")
+    if output_dir is None or not output_dir.is_dir():
+        return None
+    return candidate
+
+
 def list_novels(library_root: Path) -> List[NovelProject]:
+    library_root = library_root.resolve()
     novels: List[NovelProject] = []
 
     # treat library root itself as a novel project when files are present
-    root_state = library_root / "novel_state.json"
-    root_output = library_root / "novel_output"
-    if root_state.exists() and root_output.exists():
-        try:
-            root_meta = _read_json(root_state)
-            root_title = str(root_meta.get("title", library_root.name)).strip() or library_root.name
-        except Exception:
-            root_title = library_root.name
-        novels.append(NovelProject(novel_id="__root__", project_dir=library_root, title=root_title))
+    root_project = resolve_project_dir(library_root, "__root__")
+    if root_project is not None:
+        root_state = _resolve_within_root(library_root, root_project / "novel_state.json")
+        if root_state is not None and root_state.is_file():
+            try:
+                root_meta = _read_json(root_state)
+                root_title = str(root_meta.get("title", library_root.name)).strip() or library_root.name
+            except Exception:
+                root_title = library_root.name
+            novels.append(NovelProject(novel_id="__root__", project_dir=root_project, title=root_title))
 
     for folder in sorted([p for p in library_root.iterdir() if p.is_dir()]):
-        state_path = folder / "novel_state.json"
-        output_dir = folder / "novel_output"
-        if not state_path.exists() or not output_dir.exists():
+        project_dir = resolve_project_dir(library_root, folder.name)
+        if project_dir is None:
+            continue
+        state_path = _resolve_within_root(library_root, project_dir / "novel_state.json")
+        if state_path is None or not state_path.is_file():
             continue
         try:
             state = _read_json(state_path)
             title = str(state.get("title", folder.name)).strip() or folder.name
         except Exception:
             title = folder.name
-        novels.append(NovelProject(novel_id=folder.name, project_dir=folder, title=title))
+        novels.append(NovelProject(novel_id=folder.name, project_dir=project_dir, title=title))
     return novels
 
 
@@ -88,14 +124,26 @@ def extract_full_content(raw_text: str) -> str:
     return raw_text.strip()
 
 
-def list_chapters(project_dir: Path) -> List[ChapterRecord]:
-    output_dir = project_dir / "novel_output"
+def list_chapters(library_root: Path, project_dir: Path) -> List[ChapterRecord]:
     rows: List[ChapterRecord] = []
-    for file_path in sorted(output_dir.iterdir()):
-        m = CHAPTER_FILE_RE.match(file_path.name)
+    output_dir = _resolve_within_root(library_root, project_dir / "novel_output")
+    if output_dir is None or not output_dir.is_dir():
+        return rows
+    try:
+        entries = sorted(output_dir.iterdir())
+    except OSError:
+        return rows
+    for entry in entries:
+        file_path = _resolve_within_root(library_root, entry)
+        if file_path is None or not file_path.is_file():
+            continue
+        m = CHAPTER_FILE_RE.match(entry.name)
         if not m:
             continue
-        raw_text = file_path.read_text(encoding="utf-8")
+        try:
+            raw_text = file_path.read_text(encoding="utf-8")
+        except (OSError, UnicodeError):
+            continue
         rows.append(
             ChapterRecord(
                 chapter_no=int(m.group(1)),
@@ -130,6 +178,8 @@ small {{ color:#666; }}
 
 
 def app_factory(library_root: Path):
+    library_root = library_root.resolve()
+
     def app(environ, start_response):
         path = urlparse(environ.get("PATH_INFO", "/")).path
 
@@ -148,11 +198,11 @@ def app_factory(library_root: Path):
         # /novel/<id>
         if len(parts) == 2 and parts[0] == "novel":
             novel_id = parts[1]
-            project_dir = library_root if novel_id == "__root__" else (library_root / novel_id)
-            if not project_dir.exists():
+            project_dir = resolve_project_dir(library_root, novel_id)
+            if project_dir is None:
                 start_response("404 Not Found", [("Content-Type", "text/plain; charset=utf-8")])
                 return ["novel not found".encode("utf-8")]
-            chapters = list_chapters(project_dir)
+            chapters = list_chapters(library_root, project_dir)
             chapter_items = []
             for ch in chapters:
                 chapter_items.append(
@@ -174,12 +224,22 @@ def app_factory(library_root: Path):
             except ValueError:
                 start_response("400 Bad Request", [("Content-Type", "text/plain; charset=utf-8")])
                 return ["invalid chapter number".encode("utf-8")]
-            chapter_base = library_root if novel_id == "__root__" else (library_root / novel_id)
-            chapter_file = chapter_base / "novel_output" / f"chapter_{chapter_no:04d}.md"
-            if not chapter_file.exists():
+            chapter_base = resolve_project_dir(library_root, novel_id)
+            if chapter_base is None:
+                start_response("404 Not Found", [("Content-Type", "text/plain; charset=utf-8")])
+                return ["novel not found".encode("utf-8")]
+            chapter_file = _resolve_within_root(
+                library_root,
+                chapter_base / "novel_output" / f"chapter_{chapter_no:04d}.md",
+            )
+            if chapter_file is None or not chapter_file.is_file():
                 start_response("404 Not Found", [("Content-Type", "text/plain; charset=utf-8")])
                 return ["chapter not found".encode("utf-8")]
-            raw = chapter_file.read_text(encoding="utf-8")
+            try:
+                raw = chapter_file.read_text(encoding="utf-8")
+            except (OSError, UnicodeError):
+                start_response("404 Not Found", [("Content-Type", "text/plain; charset=utf-8")])
+                return ["chapter not found".encode("utf-8")]
             detail = html.escape(extract_full_content(raw))
             payload = render_page(
                 f"{novel_id} 第{chapter_no}章",
