@@ -37,6 +37,7 @@ python3 novel_generator.py run --api-key "$OPENAI_API_KEY" --start 1
 
 - `novel_state.json`: 全局状态（角色圣经、章节摘要、时间线）
 - `novel_output/chapter_0001.md` ... `chapter_NNNN.md`: 每章细纲摘要 + 正文
+- 状态保存会先完整写入同目录临时文件，再原子替换 `novel_state.json`，避免失败时用不完整 JSON 覆盖原状态。
 
 ## 规模建议（百万字）
 
