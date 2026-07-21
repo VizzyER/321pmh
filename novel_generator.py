@@ -224,19 +224,23 @@ class NovelGenerator:
             raise RuntimeError(f"无法解析章节摘要 JSON：{raw}") from e
 
     def build_chapter_outline(self, chapter_no: int, meta: Dict[str, Any]) -> str:
-        summary = _normalize_summary(meta.get("summary"))
+        meta = _normalize_generated_meta(meta)
+        summary = str(meta.get("summary", "")).strip() or "（无摘要）"
         timeline_events = meta.get("timeline_events", [])
         if not isinstance(timeline_events, list):
             timeline_events = []
-        updates = _normalize_character_updates(meta.get("character_updates"))
+        updates = meta.get("character_updates", {})
+        if not isinstance(updates, dict):
+            updates = {}
 
         event_lines = "\n".join(f"- {str(event).strip()}" for event in timeline_events[:5] if str(event).strip())
         if not event_lines:
             event_lines = "- （无）"
 
         update_lines = "\n".join(
-            f"- {name}: {change}"
+            f"- {name}: {str(change).strip()}"
             for name, change in updates.items()
+            if str(name).strip() and str(change).strip()
         )
         if not update_lines:
             update_lines = "- （无）"
@@ -267,19 +271,21 @@ class NovelGenerator:
             print(f"[INFO] Generating chapter {chapter_no}/{state.total_chapters}...")
             chapter_text = self.generate_one_chapter(state, chapter_no)
             meta = self.summarize_chapter(chapter_text)
+            meta = _normalize_generated_meta(meta)
             chapter_outline = self.build_chapter_outline(chapter_no, meta)
             chapter_with_outline = f"{chapter_outline}\n\n---\n\n{chapter_text.strip()}\n"
             chapter_file.write_text(chapter_with_outline, encoding="utf-8")
 
-            summary = _normalize_summary(meta.get("summary"))
+            summary = meta.get("summary", "")
             state.chapter_summaries.append(f"第{chapter_no}章：{summary}")
             for event in meta.get("timeline_events", [])[:5]:
                 state.timeline_events.append(f"第{chapter_no}章：{event}")
 
-            updates = _normalize_character_updates(meta.get("character_updates"))
-            for char in state.characters:
-                if char.name in updates:
-                    char.profile = f"{char.profile} | 最近变化：{updates[char.name]}"
+            updates = meta.get("character_updates", {})
+            if isinstance(updates, dict):
+                for char in state.characters:
+                    if char.name in updates:
+                        char.profile = f"{char.profile} | 最近变化：{updates[char.name]}"
 
             self.save_state(state)
             time.sleep(0.1)
@@ -306,6 +312,13 @@ def _normalize_character_updates(raw: Any) -> Dict[str, str]:
         if clean_name and clean_change:
             updates[clean_name] = clean_change
     return updates
+
+
+def _normalize_generated_meta(meta: Any) -> Dict[str, Any]:
+    normalized = dict(meta) if isinstance(meta, dict) else {}
+    normalized["summary"] = _normalize_summary(normalized.get("summary"))
+    normalized["character_updates"] = _normalize_character_updates(normalized.get("character_updates"))
+    return normalized
 
 
 def parse_characters(raw: str) -> List[Character]:
