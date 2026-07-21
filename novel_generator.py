@@ -104,12 +104,15 @@ class LLMClient:
             raise RuntimeError(f"Unexpected API response format: {parsed}") from e
 
 
+class ProjectInitializationError(RuntimeError):
+    """Raised when initialization would overwrite existing project data."""
+
+
 class NovelGenerator:
     def __init__(self, client: LLMClient, state_path: Path, output_dir: Path) -> None:
         self.client = client
         self.state_path = state_path
         self.output_dir = output_dir
-        self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def save_state(self, state: NovelState) -> None:
         self.state_path.write_text(json.dumps(state.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
@@ -129,6 +132,25 @@ class NovelGenerator:
         world_bible: str,
         characters: List[Character],
     ) -> NovelState:
+        if os.path.lexists(self.state_path):
+            raise ProjectInitializationError(
+                f"拒绝初始化：状态路径已被占用：{self.state_path}。"
+                "请改用不同的 --state/--output，或先备份并清理现有文件。"
+            )
+
+        if os.path.lexists(self.output_dir):
+            if not self.output_dir.is_dir():
+                raise ProjectInitializationError(
+                    f"拒绝初始化：输出路径不是可用的空目录：{self.output_dir}。"
+                    "请改用不同的 --state/--output，或先备份并清理现有文件。"
+                )
+            if any(self.output_dir.iterdir()):
+                raise ProjectInitializationError(
+                    f"拒绝初始化：输出目录不是空目录：{self.output_dir}。"
+                    "请改用不同的 --state/--output，或先备份并清理现有文件。"
+                )
+
+        self.output_dir.mkdir(parents=True, exist_ok=True)
         state = NovelState(
             title=title,
             genre=genre,
@@ -261,6 +283,7 @@ class NovelGenerator:
 
     def run(self, resume: bool = False, start_chapter: int = 1) -> None:
         state = self.load_state() if resume else self.load_state()
+        self.output_dir.mkdir(parents=True, exist_ok=True)
 
         for chapter_no in range(start_chapter, state.total_chapters + 1):
             chapter_file = self.output_dir / f"chapter_{chapter_no:04d}.md"
@@ -352,16 +375,19 @@ def main() -> None:
 
     if args.cmd == "init":
         chars = parse_characters(args.characters)
-        generator.create_initial_state(
-            title=args.title,
-            genre=args.genre,
-            premise=args.premise,
-            total_chapters=args.total_chapters,
-            words_per_chapter=args.words_per_chapter,
-            style_guide=args.style_guide,
-            world_bible=args.world_bible,
-            characters=chars,
-        )
+        try:
+            generator.create_initial_state(
+                title=args.title,
+                genre=args.genre,
+                premise=args.premise,
+                total_chapters=args.total_chapters,
+                words_per_chapter=args.words_per_chapter,
+                style_guide=args.style_guide,
+                world_bible=args.world_bible,
+                characters=chars,
+            )
+        except ProjectInitializationError as e:
+            parser.error(str(e))
         print(f"[OK] 初始化完成，状态文件：{args.state}")
     elif args.cmd == "run":
         generator.run(resume=True, start_chapter=args.start)

@@ -33,6 +33,8 @@ python3 novel_generator.py init \
 python3 novel_generator.py run --api-key "$OPENAI_API_KEY" --start 1
 ```
 
+`init` 只会使用尚未占用的状态路径和空输出目录。若状态路径已存在（包括目录或悬空符号链接），或输出目录中已有任何内容，程序会拒绝初始化且不会覆盖旧数据；请改用不同的 `--state`/`--output`，或先备份并清理原项目。
+
 ## 输出结构
 
 - `novel_state.json`: 全局状态（角色圣经、章节摘要、时间线）
