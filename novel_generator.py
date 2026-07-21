@@ -27,14 +27,14 @@ from typing import Any, Dict, List
 _CHARACTER_FIELDS = frozenset({"name", "profile", "motivations", "relationships"})
 
 
-def _load_persisted_characters(data: Dict[str, Any]) -> List[Character]:
+def _load_persisted_character_records(data: Dict[str, Any]) -> List[Dict[str, Any]]:
     if "characters" not in data:
         return []
     value = data["characters"]
     if not isinstance(value, list):
         raise ValueError(f"characters must be a list, got {type(value).__name__}")
 
-    characters: List[Character] = []
+    records: List[Dict[str, Any]] = []
     for index, item in enumerate(value):
         prefix = f"characters[{index}]"
         if not isinstance(item, dict):
@@ -102,15 +102,15 @@ def _load_persisted_characters(data: Dict[str, Any]) -> List[Character]:
                     )
                 relationships[rel_key] = rel_value
 
-        characters.append(
-            Character(
-                name=name,
-                profile=profile,
-                motivations=motivations,
-                relationships=relationships,
-            )
+        records.append(
+            {
+                "name": name,
+                "profile": profile,
+                "motivations": motivations,
+                "relationships": relationships,
+            }
         )
-    return characters
+    return records
 
 
 @dataclass
@@ -141,6 +141,9 @@ class NovelState:
 
     @staticmethod
     def from_dict(data: Dict[str, Any]) -> "NovelState":
+        data = dict(data)
+        character_records = _load_persisted_character_records(data)
+        data["characters"] = character_records
         return NovelState(
             title=data["title"],
             genre=data["genre"],
@@ -151,7 +154,7 @@ class NovelState:
             world_bible=data["world_bible"],
             chapter_summaries=data.get("chapter_summaries", []),
             timeline_events=data.get("timeline_events", []),
-            characters=_load_persisted_characters(data),
+            characters=[Character(**c) for c in data.get("characters", [])],
         )
 
 
