@@ -344,7 +344,7 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    if not args.api_key:
+    if args.cmd == "run" and not args.api_key:
         raise SystemExit("OPENAI_API_KEY 未设置，请通过 --api-key 或环境变量传入。")
 
     client = LLMClient(base_url=args.base_url, api_key=args.api_key, model=args.model)
