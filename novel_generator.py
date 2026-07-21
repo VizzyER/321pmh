@@ -25,35 +25,6 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 
-def _atomic_write_text(path: Path, content: str) -> None:
-    """Write UTF-8 text to *path* without exposing a partially written file."""
-    fd, temp_name = tempfile.mkstemp(
-        dir=path.parent,
-        prefix=f".{path.name}.",
-        suffix=".tmp",
-    )
-    temp_path = Path(temp_name)
-    try:
-        temp_file = os.fdopen(fd, "wb")
-        fd = -1
-        with temp_file:
-            temp_file.write(content.encode("utf-8"))
-            temp_file.flush()
-            os.fsync(temp_file.fileno())
-        os.replace(temp_path, path)
-    except BaseException:
-        if fd != -1:
-            try:
-                os.close(fd)
-            except BaseException:
-                pass
-        try:
-            temp_path.unlink()
-        except BaseException:
-            pass
-        raise
-
-
 @dataclass
 class Character:
     name: str
@@ -132,6 +103,35 @@ class LLMClient:
             return parsed["choices"][0]["message"]["content"]
         except Exception as e:
             raise RuntimeError(f"Unexpected API response format: {parsed}") from e
+
+
+def _atomic_write_text(path: Path, content: str) -> None:
+    """Write UTF-8 text to *path* without exposing a partially written file."""
+    fd, temp_name = tempfile.mkstemp(
+        dir=path.parent,
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+    )
+    temp_path = Path(temp_name)
+    try:
+        temp_file = os.fdopen(fd, "wb")
+        fd = -1
+        with temp_file:
+            temp_file.write(content.encode("utf-8"))
+            temp_file.flush()
+            os.fsync(temp_file.fileno())
+        os.replace(temp_path, path)
+    except BaseException:
+        if fd != -1:
+            try:
+                os.close(fd)
+            except BaseException:
+                pass
+        try:
+            temp_path.unlink()
+        except BaseException:
+            pass
+        raise
 
 
 class NovelGenerator:
