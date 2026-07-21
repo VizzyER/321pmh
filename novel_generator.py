@@ -224,22 +224,19 @@ class NovelGenerator:
             raise RuntimeError(f"无法解析章节摘要 JSON：{raw}") from e
 
     def build_chapter_outline(self, chapter_no: int, meta: Dict[str, Any]) -> str:
-        summary = str(meta.get("summary", "")).strip() or "（无摘要）"
+        summary = _normalize_summary(meta.get("summary"))
         timeline_events = meta.get("timeline_events", [])
         if not isinstance(timeline_events, list):
             timeline_events = []
-        updates = meta.get("character_updates", {})
-        if not isinstance(updates, dict):
-            updates = {}
+        updates = _normalize_character_updates(meta.get("character_updates"))
 
         event_lines = "\n".join(f"- {str(event).strip()}" for event in timeline_events[:5] if str(event).strip())
         if not event_lines:
             event_lines = "- （无）"
 
         update_lines = "\n".join(
-            f"- {name}: {str(change).strip()}"
+            f"- {name}: {change}"
             for name, change in updates.items()
-            if str(name).strip() and str(change).strip()
         )
         if not update_lines:
             update_lines = "- （无）"
@@ -274,19 +271,41 @@ class NovelGenerator:
             chapter_with_outline = f"{chapter_outline}\n\n---\n\n{chapter_text.strip()}\n"
             chapter_file.write_text(chapter_with_outline, encoding="utf-8")
 
-            summary = meta.get("summary", "")
+            summary = _normalize_summary(meta.get("summary"))
             state.chapter_summaries.append(f"第{chapter_no}章：{summary}")
             for event in meta.get("timeline_events", [])[:5]:
                 state.timeline_events.append(f"第{chapter_no}章：{event}")
 
-            updates = meta.get("character_updates", {})
-            if isinstance(updates, dict):
-                for char in state.characters:
-                    if char.name in updates:
-                        char.profile = f"{char.profile} | 最近变化：{updates[char.name]}"
+            updates = _normalize_character_updates(meta.get("character_updates"))
+            for char in state.characters:
+                if char.name in updates:
+                    char.profile = f"{char.profile} | 最近变化：{updates[char.name]}"
 
             self.save_state(state)
             time.sleep(0.1)
+
+
+def _normalize_summary(raw: Any) -> str:
+    if isinstance(raw, str):
+        summary = raw.strip()
+        if summary:
+            return summary
+    return "（无摘要）"
+
+
+def _normalize_character_updates(raw: Any) -> Dict[str, str]:
+    if not isinstance(raw, dict):
+        return {}
+
+    updates: Dict[str, str] = {}
+    for name, change in raw.items():
+        if not isinstance(name, str) or not isinstance(change, str):
+            continue
+        clean_name = name.strip()
+        clean_change = change.strip()
+        if clean_name and clean_change:
+            updates[clean_name] = clean_change
+    return updates
 
 
 def parse_characters(raw: str) -> List[Character]:
