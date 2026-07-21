@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from novel_generator import NovelGenerator
+from novel_generator import NovelGenerator, NovelState
 
 
 class _FailingWriter:
@@ -86,6 +86,43 @@ class AtomicWriteTextTests(unittest.TestCase):
 
             self.assertFalse(target.exists())
             self.assert_no_temporary_file(target)
+
+    def test_run_stops_before_state_mutation_when_atomic_write_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            state = NovelState(
+                title="测试",
+                genre="测试",
+                premise="测试",
+                total_chapters=1,
+                words_per_chapter=100,
+                style_guide="测试",
+                world_bible="测试",
+            )
+            generator = NovelGenerator(
+                client=mock.Mock(),
+                state_path=root / "novel_state.json",
+                output_dir=root / "novel_output",
+            )
+            generator.load_state = mock.Mock(return_value=state)
+            generator.generate_one_chapter = mock.Mock(return_value="正文")
+            generator.summarize_chapter = mock.Mock(
+                return_value={
+                    "summary": "摘要",
+                    "timeline_events": [],
+                    "character_updates": {},
+                }
+            )
+            generator._atomic_write_text = mock.Mock(side_effect=OSError("replace failed"))
+            generator.save_state = mock.Mock()
+
+            with self.assertRaisesRegex(OSError, "replace failed"):
+                generator.run(resume=True)
+
+            generator._atomic_write_text.assert_called_once()
+            generator.save_state.assert_not_called()
+            self.assertEqual([], state.chapter_summaries)
+            self.assertEqual([], state.timeline_events)
 
 
 if __name__ == "__main__":
