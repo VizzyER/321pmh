@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from novel_generator import _atomic_write_text
+from novel_generator import NovelGenerator
 
 
 class _FailingWriter:
@@ -32,7 +32,7 @@ class AtomicWriteTextTests(unittest.TestCase):
             target = Path(temp_dir) / "chapter_0001.md"
             content = "## 第一章\n\n正文。\n"
 
-            _atomic_write_text(target, content)
+            NovelGenerator._atomic_write_text(target, content)
 
             self.assertEqual(content.encode("utf-8"), target.read_bytes())
             self.assert_no_temporary_file(target)
@@ -45,7 +45,7 @@ class AtomicWriteTextTests(unittest.TestCase):
 
             with mock.patch("novel_generator.os.replace", side_effect=OSError("replace failed")):
                 with self.assertRaises(OSError):
-                    _atomic_write_text(target, "replacement\n")
+                    NovelGenerator._atomic_write_text(target, "replacement\n")
 
             self.assertEqual(old_content, target.read_bytes())
             self.assert_no_temporary_file(target)
@@ -56,7 +56,7 @@ class AtomicWriteTextTests(unittest.TestCase):
 
             with mock.patch("novel_generator.os.replace", side_effect=KeyboardInterrupt):
                 with self.assertRaises(KeyboardInterrupt):
-                    _atomic_write_text(target, "chapter\n")
+                    NovelGenerator._atomic_write_text(target, "chapter\n")
 
             self.assertFalse(target.exists())
             self.assert_no_temporary_file(target)
@@ -67,7 +67,7 @@ class AtomicWriteTextTests(unittest.TestCase):
 
             with mock.patch("novel_generator.os.fsync", side_effect=OSError("fsync failed")):
                 with self.assertRaises(OSError):
-                    _atomic_write_text(target, "chapter\n")
+                    NovelGenerator._atomic_write_text(target, "chapter\n")
 
             self.assertFalse(target.exists())
             self.assert_no_temporary_file(target)
@@ -82,7 +82,7 @@ class AtomicWriteTextTests(unittest.TestCase):
 
             with mock.patch("novel_generator.os.fdopen", side_effect=failing_fdopen):
                 with self.assertRaises(OSError):
-                    _atomic_write_text(target, "chapter\n")
+                    NovelGenerator._atomic_write_text(target, "chapter\n")
 
             self.assertFalse(target.exists())
             self.assert_no_temporary_file(target)

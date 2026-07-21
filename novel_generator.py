@@ -105,35 +105,6 @@ class LLMClient:
             raise RuntimeError(f"Unexpected API response format: {parsed}") from e
 
 
-def _atomic_write_text(path: Path, content: str) -> None:
-    """Write UTF-8 text to *path* without exposing a partially written file."""
-    fd, temp_name = tempfile.mkstemp(
-        dir=path.parent,
-        prefix=f".{path.name}.",
-        suffix=".tmp",
-    )
-    temp_path = Path(temp_name)
-    try:
-        temp_file = os.fdopen(fd, "wb")
-        fd = -1
-        with temp_file:
-            temp_file.write(content.encode("utf-8"))
-            temp_file.flush()
-            os.fsync(temp_file.fileno())
-        os.replace(temp_path, path)
-    except BaseException:
-        if fd != -1:
-            try:
-                os.close(fd)
-            except BaseException:
-                pass
-        try:
-            temp_path.unlink()
-        except BaseException:
-            pass
-        raise
-
-
 class NovelGenerator:
     def __init__(self, client: LLMClient, state_path: Path, output_dir: Path) -> None:
         self.client = client
@@ -203,6 +174,35 @@ class NovelGenerator:
             {timeline}
             """
         ).strip()
+
+    @staticmethod
+    def _atomic_write_text(path: Path, content: str) -> None:
+        """Write UTF-8 text to *path* without exposing a partially written file."""
+        fd, temp_name = tempfile.mkstemp(
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+        )
+        temp_path = Path(temp_name)
+        try:
+            temp_file = os.fdopen(fd, "wb")
+            fd = -1
+            with temp_file:
+                temp_file.write(content.encode("utf-8"))
+                temp_file.flush()
+                os.fsync(temp_file.fileno())
+            os.replace(temp_path, path)
+        except BaseException:
+            if fd != -1:
+                try:
+                    os.close(fd)
+                except BaseException:
+                    pass
+            try:
+                temp_path.unlink()
+            except BaseException:
+                pass
+            raise
 
     def generate_one_chapter(self, state: NovelState, chapter_no: int) -> str:
         consistency = self._consistency_pack(state)
@@ -302,7 +302,7 @@ class NovelGenerator:
             meta = self.summarize_chapter(chapter_text)
             chapter_outline = self.build_chapter_outline(chapter_no, meta)
             chapter_with_outline = f"{chapter_outline}\n\n---\n\n{chapter_text.strip()}\n"
-            _atomic_write_text(chapter_file, chapter_with_outline)
+            self._atomic_write_text(chapter_file, chapter_with_outline)
 
             summary = meta.get("summary", "")
             state.chapter_summaries.append(f"第{chapter_no}章：{summary}")
