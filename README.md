@@ -38,6 +38,10 @@ python3 novel_generator.py run --api-key "$OPENAI_API_KEY" --start 1
 - `novel_state.json`: 全局状态（角色圣经、章节摘要、时间线）
 - `novel_output/chapter_0001.md` ... `chapter_NNNN.md`: 每章细纲摘要 + 正文
 
+### `novel_state.json` 中的 `characters`
+
+`characters` 为角色对象数组，每项必含字符串字段 `name`、`profile`，可选 `motivations`（字符串数组，缺省 `[]`）与 `relationships`（字符串到字符串的对象，缺省 `{}`）。缺省整个 `characters` 视为空数组；显式 `null`、非数组、项非对象、缺必填字段、含未知字段或嵌套类型不符会在加载时报错。
+
 ## 规模建议（百万字）
 
 - 章节数：250~400

@@ -24,6 +24,95 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 
+_CHARACTER_FIELDS = frozenset({"name", "profile", "motivations", "relationships"})
+
+
+def _load_persisted_character_records(data: Dict[str, Any]) -> List[Dict[str, Any]]:
+    if "characters" not in data:
+        return []
+    value = data["characters"]
+    if not isinstance(value, list):
+        raise ValueError(f"characters must be a list, got {type(value).__name__}")
+
+    records: List[Dict[str, Any]] = []
+    for index, item in enumerate(value):
+        prefix = f"characters[{index}]"
+        if not isinstance(item, dict):
+            raise ValueError(f"{prefix} must be a dict, got {type(item).__name__}")
+
+        for field_name in item:
+            if not isinstance(field_name, str):
+                raise ValueError(
+                    f"{prefix} field name must be a string, got {type(field_name).__name__}"
+                )
+            if field_name not in _CHARACTER_FIELDS:
+                raise ValueError(
+                    f"{prefix}.{field_name} is an unknown field, "
+                    f"got {type(item[field_name]).__name__}"
+                )
+
+        if "name" not in item:
+            raise ValueError(f"{prefix}.name is required")
+        if "profile" not in item:
+            raise ValueError(f"{prefix}.profile is required")
+
+        name = item["name"]
+        if not isinstance(name, str):
+            raise ValueError(f"{prefix}.name must be a string, got {type(name).__name__}")
+
+        profile = item["profile"]
+        if not isinstance(profile, str):
+            raise ValueError(f"{prefix}.profile must be a string, got {type(profile).__name__}")
+
+        if "motivations" not in item:
+            motivations: List[str] = []
+        else:
+            motivations_raw = item["motivations"]
+            if not isinstance(motivations_raw, list):
+                raise ValueError(
+                    f"{prefix}.motivations must be a list, got {type(motivations_raw).__name__}"
+                )
+            motivations = []
+            for mot_index, motivation in enumerate(motivations_raw):
+                if not isinstance(motivation, str):
+                    raise ValueError(
+                        f"{prefix}.motivations[{mot_index}] must be a string, "
+                        f"got {type(motivation).__name__}"
+                    )
+                motivations.append(motivation)
+
+        if "relationships" not in item:
+            relationships: Dict[str, str] = {}
+        else:
+            relationships_raw = item["relationships"]
+            if not isinstance(relationships_raw, dict):
+                raise ValueError(
+                    f"{prefix}.relationships must be a dict, got {type(relationships_raw).__name__}"
+                )
+            relationships = {}
+            for rel_key, rel_value in relationships_raw.items():
+                if not isinstance(rel_key, str):
+                    raise ValueError(
+                        f"{prefix}.relationships key must be a string, got {type(rel_key).__name__}"
+                    )
+                if not isinstance(rel_value, str):
+                    raise ValueError(
+                        f"{prefix}.relationships[{rel_key}] must be a string, "
+                        f"got {type(rel_value).__name__}"
+                    )
+                relationships[rel_key] = rel_value
+
+        records.append(
+            {
+                "name": name,
+                "profile": profile,
+                "motivations": motivations,
+                "relationships": relationships,
+            }
+        )
+    return records
+
+
 @dataclass
 class Character:
     name: str
@@ -52,6 +141,9 @@ class NovelState:
 
     @staticmethod
     def from_dict(data: Dict[str, Any]) -> "NovelState":
+        data = dict(data)
+        character_records = _load_persisted_character_records(data)
+        data["characters"] = character_records
         return NovelState(
             title=data["title"],
             genre=data["genre"],
