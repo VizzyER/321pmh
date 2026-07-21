@@ -38,6 +38,8 @@ python3 novel_generator.py run --api-key "$OPENAI_API_KEY" --start 1
 - `novel_state.json`: 全局状态（角色圣经、章节摘要、时间线）
 - `novel_output/chapter_0001.md` ... `chapter_NNNN.md`: 每章细纲摘要 + 正文
 
+章节文件会先完整写入同目录临时文件并同步到磁盘，再原子替换目标文件，避免写入失败留下半写章节。章节文件与 `novel_state.json` 仍是分别保存，不提供两者之间的跨文件事务保证。
+
 ## 规模建议（百万字）
 
 - 章节数：250~400

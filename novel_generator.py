@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import tempfile
 import textwrap
 import time
 import urllib.error
@@ -22,6 +23,35 @@ import urllib.request
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List
+
+
+def _atomic_write_text(path: Path, content: str) -> None:
+    """Write UTF-8 text to *path* without exposing a partially written file."""
+    fd, temp_name = tempfile.mkstemp(
+        dir=path.parent,
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+    )
+    temp_path = Path(temp_name)
+    try:
+        temp_file = os.fdopen(fd, "wb")
+        fd = -1
+        with temp_file:
+            temp_file.write(content.encode("utf-8"))
+            temp_file.flush()
+            os.fsync(temp_file.fileno())
+        os.replace(temp_path, path)
+    except BaseException:
+        if fd != -1:
+            try:
+                os.close(fd)
+            except BaseException:
+                pass
+        try:
+            temp_path.unlink()
+        except BaseException:
+            pass
+        raise
 
 
 @dataclass
@@ -272,7 +302,7 @@ class NovelGenerator:
             meta = self.summarize_chapter(chapter_text)
             chapter_outline = self.build_chapter_outline(chapter_no, meta)
             chapter_with_outline = f"{chapter_outline}\n\n---\n\n{chapter_text.strip()}\n"
-            chapter_file.write_text(chapter_with_outline, encoding="utf-8")
+            _atomic_write_text(chapter_file, chapter_with_outline)
 
             summary = meta.get("summary", "")
             state.chapter_summaries.append(f"第{chapter_no}章：{summary}")
