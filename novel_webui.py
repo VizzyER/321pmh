@@ -23,7 +23,7 @@ from urllib.parse import parse_qs, urlparse
 from wsgiref.simple_server import make_server
 
 
-CHAPTER_FILE_RE = re.compile(r"^chapter_(\d{4})\.md$")
+CHAPTER_FILE_RE = re.compile(r"^chapter_([0-9]{4}|[1-9][0-9]{4,})\.md\Z")
 SUMMARY_RE = re.compile(r"\*\*剧情摘要\*\*\s*(.+?)(?:\n\n\*\*|\n---\n|$)", re.S)
 
 
@@ -103,6 +103,7 @@ def list_chapters(project_dir: Path) -> List[ChapterRecord]:
                 summary=extract_summary_from_chapter(raw_text),
             )
         )
+    rows.sort(key=lambda row: row.chapter_no)
     return rows
 
 

@@ -36,7 +36,7 @@ python3 novel_generator.py run --api-key "$OPENAI_API_KEY" --start 1
 ## 输出结构
 
 - `novel_state.json`: 全局状态（角色圣经、章节摘要、时间线）
-- `novel_output/chapter_0001.md` ... `chapter_NNNN.md`: 每章细纲摘要 + 正文
+- `novel_output/chapter_0001.md` ... `chapter_9999.md`，第 10000 章起为 `chapter_10000.md` 等：文件名与生成器一致，使用 `chapter_{章节号:04d}.md`（零填充至至少四位，不额外加前导零）
 
 ## 规模建议（百万字）
 
@@ -65,4 +65,4 @@ python3 novel_webui.py --library-root . --host 0.0.0.0 --port 8000
 - 在章节列表中查看每章摘要
 - 点击“详细”进入本章完整内容
 
-> `--library-root` 下每个小说项目目录应包含 `novel_state.json` 和 `novel_output/chapter_XXXX.md`。
+> `--library-root` 下每个小说项目目录应包含 `novel_state.json` 和 `novel_output/chapter_{章节号:04d}.md`（与生成器相同的最小宽度零填充，例如 `chapter_0001.md`、`chapter_10000.md`）。
