@@ -20,6 +20,7 @@ class ResumeRecoveryTests(unittest.TestCase):
         output_dir = root / "novel_output"
         client = NoCallClient()
         generator = NovelGenerator(client, state_path, output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
         state = NovelState(
             title="测试小说",
             genre="悬疑",

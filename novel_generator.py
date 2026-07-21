@@ -270,7 +270,7 @@ class NovelGenerator:
         outline = chapter_content.split(boundary, 1)[0]
         lines = outline.splitlines()
         expected_heading = f"## 第{chapter_no}章细纲摘要"
-        if not lines or lines[0] != expected_heading:
+        if not lines or lines[0].strip() != expected_heading:
             raise RuntimeError(
                 f"无法恢复第{chapter_no}章连续性状态：{chapter_file} "
                 f"细纲标题必须为“{expected_heading}”"
@@ -279,7 +279,9 @@ class NovelGenerator:
         markers = ["**剧情摘要**", "**关键事件**", "**人物变化**"]
         marker_positions: List[int] = []
         for marker in markers:
-            positions = [index for index, line in enumerate(lines) if line == marker]
+            positions = [
+                index for index, line in enumerate(lines) if line.strip() == marker
+            ]
             if len(positions) != 1:
                 raise RuntimeError(
                     f"无法恢复第{chapter_no}章连续性状态：{chapter_file} "
@@ -316,10 +318,11 @@ class NovelGenerator:
             items: List[str] = []
             current: List[str] = []
             for line in section_lines:
-                if line.startswith("- "):
+                stripped_line = line.strip()
+                if stripped_line.startswith("- "):
                     if current:
                         items.append("\n".join(current).strip())
-                    item_start = line[2:].strip()
+                    item_start = stripped_line[2:].strip()
                     if not item_start:
                         raise RuntimeError(
                             f"无法恢复第{chapter_no}章连续性状态：{chapter_file} "
