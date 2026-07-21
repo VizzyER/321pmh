@@ -24,6 +24,14 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 
+@dataclass
+class Character:
+    name: str
+    profile: str
+    motivations: List[str] = field(default_factory=list)
+    relationships: Dict[str, str] = field(default_factory=dict)
+
+
 def _require_strict_positive_int(value: Any, field_name: str) -> int:
     if isinstance(value, bool):
         raise ValueError(f"{field_name} must be a strict positive integer")
@@ -32,24 +40,6 @@ def _require_strict_positive_int(value: Any, field_name: str) -> int:
     if value <= 0:
         raise ValueError(f"{field_name} must be a strict positive integer")
     return value
-
-
-def parse_positive_int(value: str) -> int:
-    try:
-        parsed = int(value)
-    except ValueError as e:
-        raise argparse.ArgumentTypeError(f"{value!r} is not a valid positive integer") from e
-    if isinstance(parsed, bool) or parsed <= 0:
-        raise argparse.ArgumentTypeError(f"{value!r} is not a valid positive integer")
-    return parsed
-
-
-@dataclass
-class Character:
-    name: str
-    profile: str
-    motivations: List[str] = field(default_factory=list)
-    relationships: Dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -345,6 +335,16 @@ def parse_characters(raw: str) -> List[Character]:
                     relations[k.strip()] = v.strip()
         items.append(Character(name=name, profile=profile, motivations=motivations, relationships=relations))
     return items
+
+
+def parse_positive_int(value: str) -> int:
+    try:
+        parsed = int(value)
+    except ValueError as e:
+        raise argparse.ArgumentTypeError(f"{value!r} is not a valid positive integer") from e
+    if isinstance(parsed, bool) or parsed <= 0:
+        raise argparse.ArgumentTypeError(f"{value!r} is not a valid positive integer")
+    return parsed
 
 
 def main() -> None:
