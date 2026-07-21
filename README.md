@@ -35,7 +35,7 @@ python3 novel_generator.py run --api-key "$OPENAI_API_KEY" --start 1
 
 ## 输出结构
 
-- `novel_state.json`: 全局状态（角色圣经、章节摘要、时间线）
+- `novel_state.json`: 全局状态（角色圣经、章节摘要、时间线）；`chapter_summaries` 与 `timeline_events` 必须是字符串数组，缺省视为空数组，显式 `null`、非数组或含非字符串元素会在加载时报错
 - `novel_output/chapter_0001.md` ... `chapter_NNNN.md`: 每章细纲摘要 + 正文
 
 ## 规模建议（百万字）
@@ -48,7 +48,6 @@ python3 novel_generator.py run --api-key "$OPENAI_API_KEY" --start 1
 
 - 大规模生成成本较高，请控制模型、温度和章节长度。
 - 若你使用不同供应商，只要兼容 OpenAI chat completions 即可。
-
 
 ## Web UI（浏览小说与章节详情）
 
