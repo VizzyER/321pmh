@@ -60,10 +60,24 @@ class NovelState:
             words_per_chapter=data["words_per_chapter"],
             style_guide=data["style_guide"],
             world_bible=data["world_bible"],
-            chapter_summaries=data.get("chapter_summaries", []),
-            timeline_events=data.get("timeline_events", []),
+            chapter_summaries=_load_persisted_string_list(data, "chapter_summaries"),
+            timeline_events=_load_persisted_string_list(data, "timeline_events"),
             characters=[Character(**c) for c in data.get("characters", [])],
         )
+
+
+def _load_persisted_string_list(data: Dict[str, Any], field_name: str) -> List[str]:
+    if field_name not in data:
+        return []
+    value = data[field_name]
+    if not isinstance(value, list):
+        raise ValueError(f"{field_name} must be a list of strings, got {type(value).__name__}")
+    items: List[str] = []
+    for index, item in enumerate(value):
+        if not isinstance(item, str):
+            raise ValueError(f"{field_name}[{index}] must be a string, got {type(item).__name__}")
+        items.append(item)
+    return items
 
 
 class LLMClient:
