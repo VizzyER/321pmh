@@ -262,7 +262,10 @@ class NovelGenerator:
     def run(self, resume: bool = False, start_chapter: int = 1) -> None:
         state = self.load_state() if resume else self.load_state()
 
-        for chapter_no in range(start_chapter, state.total_chapters + 1):
+        for chapter_no in range(
+            _validate_start_chapter(start_chapter, state.total_chapters),
+            state.total_chapters + 1,
+        ):
             chapter_file = self.output_dir / f"chapter_{chapter_no:04d}.md"
             if chapter_file.exists():
                 continue
@@ -287,6 +290,51 @@ class NovelGenerator:
 
             self.save_state(state)
             time.sleep(0.1)
+
+
+class StartChapterError(ValueError):
+    """Raised when a run start chapter is invalid for the loaded novel."""
+
+
+def parse_start_chapter(value: str) -> int:
+    """Parse a positive chapter number for argparse."""
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError) as e:
+        raise argparse.ArgumentTypeError(
+            f"--start 必须是正整数，收到 {value!r}"
+        ) from e
+    if parsed < 1:
+        raise argparse.ArgumentTypeError(
+            f"--start 必须是正整数，收到 {value!r}"
+        )
+    return parsed
+
+
+def _validate_start_chapter(start_chapter: Any, total_chapters: int) -> int:
+    """Validate direct run() calls before generation has any side effects."""
+    if type(start_chapter) is not int:
+        raise StartChapterError(
+            "start_chapter 必须是严格整数（不接受 bool、float 或字符串）"
+        )
+    if not 1 <= start_chapter <= total_chapters:
+        raise StartChapterError(
+            "start_chapter 必须位于 1 到 "
+            f"total_chapters（{total_chapters}）之间，收到 {start_chapter}"
+        )
+    return start_chapter
+
+
+def run_from_cli(
+    parser: argparse.ArgumentParser,
+    generator: NovelGenerator,
+    start_chapter: int,
+) -> None:
+    """Run generation while presenting start validation as an argparse error."""
+    try:
+        generator.run(resume=True, start_chapter=start_chapter)
+    except StartChapterError as e:
+        parser.error(str(e))
 
 
 def parse_characters(raw: str) -> List[Character]:
@@ -340,7 +388,7 @@ def main() -> None:
     )
 
     run = sub.add_parser("run", help="generate chapters")
-    run.add_argument("--start", type=int, default=1)
+    run.add_argument("--start", type=parse_start_chapter, default=1)
 
     args = parser.parse_args()
 
@@ -364,7 +412,7 @@ def main() -> None:
         )
         print(f"[OK] 初始化完成，状态文件：{args.state}")
     elif args.cmd == "run":
-        generator.run(resume=True, start_chapter=args.start)
+        run_from_cli(parser, generator, args.start)
         print("[OK] 生成完成")
 
 
