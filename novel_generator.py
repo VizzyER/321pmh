@@ -104,6 +104,18 @@ class LLMClient:
             raise RuntimeError(f"Unexpected API response format: {parsed}") from e
 
 
+def has_persisted_continuity_for_chapter(state: NovelState, chapter_no: int) -> bool:
+    """Return True if state already records continuity for this chapter number."""
+    prefix = f"第{chapter_no}章："
+    for entry in state.chapter_summaries:
+        if isinstance(entry, str) and entry.startswith(prefix):
+            return True
+    for entry in state.timeline_events:
+        if isinstance(entry, str) and entry.startswith(prefix):
+            return True
+    return False
+
+
 class NovelGenerator:
     def __init__(self, client: LLMClient, state_path: Path, output_dir: Path) -> None:
         self.client = client
@@ -266,6 +278,14 @@ class NovelGenerator:
             chapter_file = self.output_dir / f"chapter_{chapter_no:04d}.md"
             if chapter_file.exists():
                 continue
+
+            if has_persisted_continuity_for_chapter(state, chapter_no):
+                raise RuntimeError(
+                    f"第 {chapter_no} 章：章节文件缺失但连续性状态已存在（{chapter_file} 不存在，"
+                    f"但 novel_state.json 的 chapter_summaries 或 timeline_events 中已有该章记录）。"
+                    "请先恢复章节文件，或人工修复状态后再继续；程序不会自动删除或覆盖已有连续性状态。"
+                    "恢复步骤见 RECOVERY.md。"
+                )
 
             print(f"[INFO] Generating chapter {chapter_no}/{state.total_chapters}...")
             chapter_text = self.generate_one_chapter(state, chapter_no)
