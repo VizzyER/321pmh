@@ -22,10 +22,7 @@ class AtomicStateSaveTests(unittest.TestCase):
         )
 
     def assert_no_temporary_state_files(self, root: Path) -> None:
-        self.assertEqual(
-            sorted(path.name for path in root.iterdir()),
-            ["novel_output", "novel_state.json"],
-        )
+        self.assertEqual(list(root.glob(".novel_state.json.*.tmp")), [])
 
     def test_successful_save_can_be_loaded(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

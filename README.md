@@ -14,6 +14,7 @@
 - 每章文件头部自动写入“细纲摘要”（剧情摘要/关键事件/人物变化），便于快速核对前后逻辑
 - 把最近章节摘要+关键事件+角色设定拼成“连续性上下文包”输入下一章
 - 断点续跑：章节文件存在则自动跳过
+- 状态保存会先完整写入同目录临时文件，再原子替换 `novel_state.json`，避免失败时用不完整 JSON 覆盖原状态。
 
 ## 快速开始
 
@@ -37,7 +38,6 @@ python3 novel_generator.py run --api-key "$OPENAI_API_KEY" --start 1
 
 - `novel_state.json`: 全局状态（角色圣经、章节摘要、时间线）
 - `novel_output/chapter_0001.md` ... `chapter_NNNN.md`: 每章细纲摘要 + 正文
-- 状态保存会先完整写入同目录临时文件，再原子替换 `novel_state.json`，避免失败时用不完整 JSON 覆盖原状态。
 
 ## 规模建议（百万字）
 
