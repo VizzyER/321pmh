@@ -65,4 +65,6 @@ python3 novel_webui.py --library-root . --host 0.0.0.0 --port 8000
 - 在章节列表中查看每章摘要
 - 点击“详细”进入本章完整内容
 
+Web UI 也支持项目目录名包含中文、空格以及 `?`、`#`、`&` 等 URL 保留字符。
+
 > `--library-root` 下每个小说项目目录应包含 `novel_state.json` 和 `novel_output/chapter_XXXX.md`。

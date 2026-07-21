@@ -19,7 +19,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import quote
 from wsgiref.simple_server import make_server
 
 
@@ -129,15 +129,28 @@ small {{ color:#666; }}
     return doc.encode("utf-8")
 
 
+def encode_path_segment(value: str) -> str:
+    return quote(value, safe="")
+
+
+def decode_wsgi_path_info(path_info: str) -> str:
+    if not path_info:
+        return "/"
+    try:
+        return path_info.encode("latin-1").decode("utf-8")
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        return path_info
+
+
 def app_factory(library_root: Path):
     def app(environ, start_response):
-        path = urlparse(environ.get("PATH_INFO", "/")).path
+        path = decode_wsgi_path_info(environ.get("PATH_INFO", "/"))
 
         if path == "/":
             novels = list_novels(library_root)
             items = "\n".join(
                 f"<div class='card'><b>{html.escape(n.title)}</b><br><small>{html.escape(n.novel_id)}</small><br>"
-                f"<a class='btn' href='/novel/{html.escape(n.novel_id)}'>进入小说</a></div>"
+                f"<a class='btn' href='/novel/{encode_path_segment(n.novel_id)}'>进入小说</a></div>"
                 for n in novels
             ) or "<p>暂无小说，请先运行生成器。</p>"
             payload = render_page("小说列表", f"<h1>小说列表</h1>{items}")
@@ -153,11 +166,12 @@ def app_factory(library_root: Path):
                 start_response("404 Not Found", [("Content-Type", "text/plain; charset=utf-8")])
                 return ["novel not found".encode("utf-8")]
             chapters = list_chapters(project_dir)
+            encoded_novel_id = encode_path_segment(novel_id)
             chapter_items = []
             for ch in chapters:
                 chapter_items.append(
                     f"<div class='card'><b>第{ch.chapter_no}章</b><p>{html.escape(ch.summary)}</p>"
-                    f"<a class='btn' href='/novel/{html.escape(novel_id)}/chapter/{ch.chapter_no}'>详细</a></div>"
+                    f"<a class='btn' href='/novel/{encoded_novel_id}/chapter/{ch.chapter_no}'>详细</a></div>"
                 )
             payload = render_page(
                 f"{novel_id} 章节",
@@ -181,9 +195,10 @@ def app_factory(library_root: Path):
                 return ["chapter not found".encode("utf-8")]
             raw = chapter_file.read_text(encoding="utf-8")
             detail = html.escape(extract_full_content(raw))
+            encoded_novel_id = encode_path_segment(novel_id)
             payload = render_page(
                 f"{novel_id} 第{chapter_no}章",
-                f"<p><a href='/novel/{html.escape(novel_id)}'>← 返回章节列表</a></p>"
+                f"<p><a href='/novel/{encoded_novel_id}'>← 返回章节列表</a></p>"
                 f"<h1>{html.escape(novel_id)} - 第{chapter_no}章</h1><pre>{detail}</pre>",
             )
             start_response("200 OK", [("Content-Type", "text/html; charset=utf-8")])
