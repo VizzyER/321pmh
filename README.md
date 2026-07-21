@@ -17,9 +17,10 @@
 
 ## 快速开始
 
+初始化只写入本地项目状态，不需要 API 密钥：
+
 ```bash
 python3 novel_generator.py init \
-  --api-key "$OPENAI_API_KEY" \
   --title "群星黯淡时" \
   --genre "科幻史诗" \
   --premise "文明在热寂阴影下争夺最后的恒星火种" \
@@ -29,8 +30,10 @@ python3 novel_generator.py init \
   --characters $'林策|年轻航道测绘师|寻找失踪父亲,守住人类火种|苏岚:同盟且互相隐瞒\n苏岚|环带议会特使|维持秩序,隐瞒真相|林策:互相信任又猜疑'
 ```
 
+生成章节会调用模型 API，必须通过 `--api-key` 或 `OPENAI_API_KEY` 提供非空密钥：
+
 ```bash
-python3 novel_generator.py run --api-key "$OPENAI_API_KEY" --start 1
+python3 novel_generator.py --api-key "$OPENAI_API_KEY" run --start 1
 ```
 
 ## 输出结构
