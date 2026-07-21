@@ -48,6 +48,7 @@ python3 novel_generator.py run --api-key "$OPENAI_API_KEY" --start 1
 
 - 大规模生成成本较高，请控制模型、温度和章节长度。
 - 若你使用不同供应商，只要兼容 OpenAI chat completions 即可。
+- 若 `run` 提示“章节文件缺失但连续性状态已存在”，说明章节 Markdown 与 `novel_state.json` 不一致。程序会在调用模型或改写数据前安全中止；应优先从备份恢复对应 `chapter_NNNN.md`。若确需重新生成，须先人工核对并完整修复该章的摘要、时间线和角色状态。
 
 
 ## Web UI（浏览小说与章节详情）
