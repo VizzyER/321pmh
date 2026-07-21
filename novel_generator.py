@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import tempfile
 import textwrap
 import time
 import urllib.error
@@ -112,7 +113,30 @@ class NovelGenerator:
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def save_state(self, state: NovelState) -> None:
-        self.state_path.write_text(json.dumps(state.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
+        serialized = json.dumps(state.to_dict(), ensure_ascii=False, indent=2)
+        temp_path: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                dir=self.state_path.parent,
+                prefix=f".{self.state_path.name}.",
+                suffix=".tmp",
+                delete=False,
+            ) as temp_file:
+                temp_path = Path(temp_file.name)
+                temp_file.write(serialized)
+                temp_file.flush()
+                os.fsync(temp_file.fileno())
+
+            os.replace(temp_path, self.state_path)
+            temp_path = None
+        finally:
+            if temp_path is not None:
+                try:
+                    temp_path.unlink()
+                except OSError:
+                    pass
 
     def load_state(self) -> NovelState:
         data = json.loads(self.state_path.read_text(encoding="utf-8"))
