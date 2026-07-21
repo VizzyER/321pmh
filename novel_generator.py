@@ -24,6 +24,26 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 
+def _require_strict_positive_int(value: Any, field_name: str) -> int:
+    if isinstance(value, bool):
+        raise ValueError(f"{field_name} must be a strict positive integer")
+    if type(value) is not int:
+        raise ValueError(f"{field_name} must be a strict positive integer")
+    if value <= 0:
+        raise ValueError(f"{field_name} must be a strict positive integer")
+    return value
+
+
+def parse_positive_int(value: str) -> int:
+    try:
+        parsed = int(value)
+    except ValueError as e:
+        raise argparse.ArgumentTypeError(f"{value!r} is not a valid positive integer") from e
+    if isinstance(parsed, bool) or parsed <= 0:
+        raise argparse.ArgumentTypeError(f"{value!r} is not a valid positive integer")
+    return parsed
+
+
 @dataclass
 class Character:
     name: str
@@ -44,6 +64,18 @@ class NovelState:
     chapter_summaries: List[str] = field(default_factory=list)
     timeline_events: List[str] = field(default_factory=list)
     characters: List[Character] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "total_chapters",
+            _require_strict_positive_int(self.total_chapters, "total_chapters"),
+        )
+        object.__setattr__(
+            self,
+            "words_per_chapter",
+            _require_strict_positive_int(self.words_per_chapter, "words_per_chapter"),
+        )
 
     def to_dict(self) -> Dict[str, Any]:
         data = asdict(self)
@@ -329,8 +361,8 @@ def main() -> None:
     init.add_argument("--title", required=True)
     init.add_argument("--genre", required=True)
     init.add_argument("--premise", required=True)
-    init.add_argument("--total-chapters", type=int, default=300)
-    init.add_argument("--words-per-chapter", type=int, default=3500)
+    init.add_argument("--total-chapters", type=parse_positive_int, default=300)
+    init.add_argument("--words-per-chapter", type=parse_positive_int, default=3500)
     init.add_argument("--style-guide", default="第三人称、多线叙事、重视伏笔回收")
     init.add_argument("--world-bible", required=True)
     init.add_argument(
