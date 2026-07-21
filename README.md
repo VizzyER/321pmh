@@ -55,10 +55,12 @@ python3 novel_generator.py run --api-key "$OPENAI_API_KEY" --start 1
 你可以启动一个本地 Web 界面查看已生成小说：
 
 ```bash
-python3 novel_webui.py --library-root . --host 0.0.0.0 --port 8000
+python3 novel_webui.py --library-root . --port 8000
 ```
 
-访问 `http://localhost:8000` 后可：
+默认绑定 `127.0.0.1`，仅本机可访问。只有在受信任或受保护的网络中，且明确需要时，才应使用 `--host 0.0.0.0` 监听所有网卡。
+
+访问 `http://127.0.0.1:8000` 后可：
 
 - 查看每一部小说
 - 点击进入章节列表
