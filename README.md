@@ -33,12 +33,12 @@ python3 novel_generator.py init \
 python3 novel_generator.py run --api-key "$OPENAI_API_KEY" --start 1
 ```
 
-`run` 的 `--start` 必须是 1 到状态中 `total_chapters` 之间的整数（含边界）。
-
 ## 输出结构
 
 - `novel_state.json`: 全局状态（角色圣经、章节摘要、时间线）
 - `novel_output/chapter_0001.md` ... `chapter_NNNN.md`: 每章细纲摘要 + 正文
+
+`run` 的 `--start` 必须是 1 到状态中 `total_chapters` 之间的整数（含边界）。
 
 ## 规模建议（百万字）
 

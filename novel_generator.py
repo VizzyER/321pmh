@@ -261,9 +261,11 @@ class NovelGenerator:
 
     def run(self, resume: bool = False, start_chapter: int = 1) -> None:
         state = self.load_state() if resume else self.load_state()
-        _validate_start_chapter(start_chapter, state.total_chapters)
 
-        for chapter_no in range(start_chapter, state.total_chapters + 1):
+        for chapter_no in range(
+            _validate_start_chapter(start_chapter, state.total_chapters),
+            state.total_chapters + 1,
+        ):
             chapter_file = self.output_dir / f"chapter_{chapter_no:04d}.md"
             if chapter_file.exists():
                 continue
@@ -309,7 +311,7 @@ def parse_start_chapter(value: str) -> int:
     return parsed
 
 
-def _validate_start_chapter(start_chapter: Any, total_chapters: int) -> None:
+def _validate_start_chapter(start_chapter: Any, total_chapters: int) -> int:
     """Validate direct run() calls before generation has any side effects."""
     if type(start_chapter) is not int:
         raise StartChapterError(
@@ -320,6 +322,19 @@ def _validate_start_chapter(start_chapter: Any, total_chapters: int) -> None:
             "start_chapter 必须位于 1 到 "
             f"total_chapters（{total_chapters}）之间，收到 {start_chapter}"
         )
+    return start_chapter
+
+
+def run_from_cli(
+    parser: argparse.ArgumentParser,
+    generator: NovelGenerator,
+    start_chapter: int,
+) -> None:
+    """Run generation while presenting start validation as an argparse error."""
+    try:
+        generator.run(resume=True, start_chapter=start_chapter)
+    except StartChapterError as e:
+        parser.error(str(e))
 
 
 def parse_characters(raw: str) -> List[Character]:
@@ -397,10 +412,7 @@ def main() -> None:
         )
         print(f"[OK] 初始化完成，状态文件：{args.state}")
     elif args.cmd == "run":
-        try:
-            generator.run(resume=True, start_chapter=args.start)
-        except StartChapterError as e:
-            parser.error(str(e))
+        run_from_cli(parser, generator, args.start)
         print("[OK] 生成完成")
 
 
