@@ -53,7 +53,7 @@ class NovelState:
     @staticmethod
     def from_dict(data: Dict[str, Any]) -> "NovelState":
         return NovelState(
-            title=data["title"],
+            title=_validate_required_persisted_strings(data)["title"],
             genre=data["genre"],
             premise=data["premise"],
             total_chapters=data["total_chapters"],
@@ -102,6 +102,19 @@ class LLMClient:
             return parsed["choices"][0]["message"]["content"]
         except Exception as e:
             raise RuntimeError(f"Unexpected API response format: {parsed}") from e
+
+
+_REQUIRED_PERSISTED_STRING_FIELDS = ("title", "genre", "premise", "style_guide", "world_bible")
+
+
+def _validate_required_persisted_strings(data: Dict[str, Any]) -> Dict[str, Any]:
+    for field_name in _REQUIRED_PERSISTED_STRING_FIELDS:
+        if field_name not in data:
+            raise ValueError(f"{field_name} is required")
+        value = data[field_name]
+        if not isinstance(value, str):
+            raise ValueError(f"{field_name} must be a string, got {type(value).__name__}")
+    return data
 
 
 class NovelGenerator:
