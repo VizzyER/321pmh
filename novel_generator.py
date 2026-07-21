@@ -24,6 +24,23 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 
+def _normalize_timeline_events(raw: Any) -> List[str]:
+    """Keep up to five non-empty stripped strings from a top-level list."""
+    if not isinstance(raw, list):
+        return []
+    events: List[str] = []
+    for item in raw:
+        if not isinstance(item, str):
+            continue
+        text = item.strip()
+        if not text:
+            continue
+        events.append(text)
+        if len(events) >= 5:
+            break
+    return events
+
+
 @dataclass
 class Character:
     name: str
@@ -225,14 +242,12 @@ class NovelGenerator:
 
     def build_chapter_outline(self, chapter_no: int, meta: Dict[str, Any]) -> str:
         summary = str(meta.get("summary", "")).strip() or "（无摘要）"
-        timeline_events = meta.get("timeline_events", [])
-        if not isinstance(timeline_events, list):
-            timeline_events = []
+        timeline_events = _normalize_timeline_events(meta.get("timeline_events"))
         updates = meta.get("character_updates", {})
         if not isinstance(updates, dict):
             updates = {}
 
-        event_lines = "\n".join(f"- {str(event).strip()}" for event in timeline_events[:5] if str(event).strip())
+        event_lines = "\n".join(f"- {event}" for event in timeline_events)
         if not event_lines:
             event_lines = "- （无）"
 
@@ -276,7 +291,7 @@ class NovelGenerator:
 
             summary = meta.get("summary", "")
             state.chapter_summaries.append(f"第{chapter_no}章：{summary}")
-            for event in meta.get("timeline_events", [])[:5]:
+            for event in _normalize_timeline_events(meta.get("timeline_events")):
                 state.timeline_events.append(f"第{chapter_no}章：{event}")
 
             updates = meta.get("character_updates", {})
