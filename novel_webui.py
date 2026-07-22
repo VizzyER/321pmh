@@ -205,6 +205,8 @@ def main() -> None:
     root = Path(args.library_root).resolve()
     if not root.exists():
         raise SystemExit(f"library root not found: {root}")
+    if not root.is_dir():
+        raise SystemExit(f"library root is not a directory: {root}")
 
     app = app_factory(root)
     print(f"[OK] WebUI running at http://{args.host}:{args.port} (library_root={root})")
